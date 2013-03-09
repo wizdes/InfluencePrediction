@@ -1,0 +1,5 @@
+1) Normalize the weekly cycle of stock trades and influence data. 
+2) Randomly guess for a probabilistic baseline.
+3) Additional kernels.
+4) Use both stock data and influence data.
+5) More data.

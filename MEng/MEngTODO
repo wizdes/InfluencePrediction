@@ -1,0 +1,7 @@
+2) Random guess - DONE
+1) Read additional data for SVM
+// turn influence data ready state #1
+// do this so we can just feed it into the SVM
+ONE SCRIPT TO RUN IT ALL
+// lol jk. this doesn't work instantly; you still have to turn xls -> cvs :\
+3) Normalize the values - Hard to do without the date information
