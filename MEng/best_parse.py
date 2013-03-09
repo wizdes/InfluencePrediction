@@ -89,11 +89,9 @@ def create_data(v_dic, i_dic):
 		if yesterday_datum in v_dic and datum in v_dic:
 			result = 1
 			if(v_dic[datum] - v_dic[yesterday_datum] < 0) : result = -1
-			temp_str = saved_enter_str
 			enter_str = str(result) + " 1:" + str(i_dic[yesterday_datum][0]) + " 2:" + str(i_dic[yesterday_datum][1]) + " 3:" + str(i_dic[yesterday_datum][2]) + " 4:" + str(i_dic[yesterday_datum][3]) + " 5:" + str(i_dic[yesterday_datum][4]) + " 6:" + str(i_dic[yesterday_datum][5]) 
 			#enter_str = str(result) + " 1:" + str(i_dic[yesterday_datum][0]) + " 2:" + str(i_dic[yesterday_datum][1]) + " 3:" + str(i_dic[yesterday_datum][3]) + " 4:" + str(i_dic[yesterday_datum][4])
-			saved_enter_str = enter_str
-			data_array.append(temp_str)
+			data_array.append(enter_str)
 		elif datum in v_dic:
 			if yesterday_datum == "":
 				yesterday_datum = datum
@@ -107,11 +105,9 @@ def create_data(v_dic, i_dic):
 				if len(ptr_datum) == 3 : ptr_datum = "0" + ptr_datum 
 			result = 1
 			if(v_dic[datum] - v_dic[ptr_datum] < 0) : result = -1
-			temp_str = saved_enter_str
 			enter_str = str(result) + " 1:" + str(cumulative_data[0]) + " 2:" + str(cumulative_data[1]) + " 3:" + str(cumulative_data[2]) + " 4:" + str(cumulative_data[3]) + " 5:" + str(cumulative_data[4]) + " 6:" + str(cumulative_data[5]) 
 			#enter_str = str(result) + " 1:" + str(cumulative_data[0]) + " 2:" + str(cumulative_data[1]) + " 3:" + str(cumulative_data[3]) + " 4:" + str(cumulative_data[4])
-			saved_enter_str = enter_str
-			data_array.append(temp_str)
+			data_array.append(enter_str)
 		yesterday_datum = datum
 	return data_array
 
