@@ -60,34 +60,44 @@ def getDistance(trainElement, testElement):
 	return distance
 
 def singlePredict(testElement, trainingData):
-	distances = [-1]*20
-	predict = [0]*20
+	numExamples = 20
+	distances = [-1]*numExamples
+	predict = [0]*numExamples
 	for element in trainingData:
 		iter = 0 
 		distance = getDistance(element, testElement)
 		for index, var in enumerate(distances):
 			if var == -1 or distance < distances[index]:
 				distances[index] = distance
-				predict[index] = int(element.split()[0])
+				predict[index] = float(element.split()[0])
 				iter += 1
 				break;
-	print predict
+	#print predict
 	sum = 0
 	for index, element in enumerate(predict): 
-		sum += (10 - index ) * element
-	if sum > 0: return 1
-	return -1
-
+		sum += (numExamples - index) * 1.0 * element
+	return sum * 1.0 / ((numExamples * (numExamples + 1))/2.0)
+	#for index, element in enumerate(predict): 
+	#	sum += element
+	#return sum * 1.0 / numExamples
 
 def predict(trainingData, testingData):
-	correct = 0
+	within = 0
 	total = 0
+	good = 0
 	for testElement in testingData:
 		predictedResult = singlePredict(testElement, trainingData)
-		if predictedResult == int(testElement.split()[0]):
-			correct += 1
+		validResult = float(testElement.split()[0])
+		print "Comparing: " + str(predictedResult) + " " + str(validResult)
+		diff = (predictedResult - validResult) * 1.0/predictedResult
+		print diff
+		if diff > -0.22 and diff < 0.22 : good += 1
+		if diff < 0: diff = diff * -1
+		within += diff
 		total += 1
-	print correct * 1.0/total
+	print "good is: " + str(good) + " out of: " + str(total)
+	print within * 1.0/total
+
 
 if __name__ == "__main__":
 	train = loadTrainingData(sys.argv[1])

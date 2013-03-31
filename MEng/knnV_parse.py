@@ -1,7 +1,8 @@
 import sys
 import random
-import numpy as np
-import math
+
+import csv
+import datetime
 
 smoothing = True
 
@@ -53,6 +54,25 @@ def read_influence_file(filename, apply_smoothing):
 		iter += 1
 	return inf_dict
 
+# read csv file for stock volume features
+def csv_read(dir):
+	num_entries = 64
+	file_path = dir + "/" + "table.csv"
+	volume_book = {}
+	with open(file_path,'rb') as f_in:
+		reader = csv.reader(f_in)
+		cnt = 1
+		for row in reader:
+			#print row[0]
+			if(row[0] != 'Date'):
+				_date = datetime.datetime.strptime(row[0],'%Y-%m-%d').date()
+				#if(_date < datetime.date(2012,12,20)):
+				if(cnt == num_entries):
+					break
+				volume_book[_date] = int(row[5])
+				cnt += 1
+	return volume_book
+
 def read_volume_data(dir):
 	lines = read_file(dir + "/" + "table.csv")
 	volume_dict = {}
@@ -79,27 +99,21 @@ def read_volume_data(dir):
 		volume_dict[key] = int(volume_dict[key]) * 1.0 * total_avg / week_based_avg[int(key)%5]
 	return volume_dict
 
-def create_data(v_dic, i_dic):
+def create_data(v_dic, i_dic, volume_book):
 	predict_dates = sorted(v_dic.keys())
 	influence_data = sorted(i_dic.keys())
-	ccr_v_array = []
-	ccr_i_array = []
-	ccr_iv_array = []
-	ccr_op_array = []
 	yesterday_volume = 0
 	yesterday_datum = ""
+	saved_enter_str = ""
+
 	data_array = []
 	for datum in influence_data:
 		if yesterday_datum in v_dic and datum in v_dic:
 			result = 1
 			if(v_dic[datum] - v_dic[yesterday_datum] < 0) : result = -1
-			enter_str = str(result) + " 1:" + str(i_dic[yesterday_datum][0]) + " 2:" + str(i_dic[yesterday_datum][1]) + " 3:" + str(i_dic[yesterday_datum][2]) + " 4:" + str(i_dic[yesterday_datum][3]) + " 5:" + str(i_dic[yesterday_datum][4]) + " 6:" + str(i_dic[yesterday_datum][5]) 
+			enter_str = str(v_dic[datum]) + " 1:" + str(i_dic[yesterday_datum][0]) + " 2:" + str(i_dic[yesterday_datum][1]) + " 3:" + str(i_dic[yesterday_datum][2]) + " 4:" + str(i_dic[yesterday_datum][3]) + " 5:" + str(i_dic[yesterday_datum][4]) + " 6:" + str(i_dic[yesterday_datum][5]) 
 			#enter_str = str(result) + " 1:" + str(i_dic[yesterday_datum][0]) + " 2:" + str(i_dic[yesterday_datum][1]) + " 3:" + str(i_dic[yesterday_datum][3]) + " 4:" + str(i_dic[yesterday_datum][4])
 			data_array.append(enter_str)
-			ccr_v_array.append(v_dic[datum])
-			ccr_i_array.append(i_dic[yesterday_datum][0])
-			ccr_iv_array.append(i_dic[yesterday_datum][1])
-			ccr_op_array.append(i_dic[yesterday_datum][2])
 		elif datum in v_dic:
 			if yesterday_datum == "":
 				yesterday_datum = datum
@@ -113,58 +127,59 @@ def create_data(v_dic, i_dic):
 				if len(ptr_datum) == 3 : ptr_datum = "0" + ptr_datum 
 			result = 1
 			if(v_dic[datum] - v_dic[ptr_datum] < 0) : result = -1
-			enter_str = str(result) + " 1:" + str(cumulative_data[0]) + " 2:" + str(cumulative_data[1]) + " 3:" + str(cumulative_data[2]) + " 4:" + str(cumulative_data[3]) + " 5:" + str(cumulative_data[4]) + " 6:" + str(cumulative_data[5]) 
+			enter_str = str(v_dic[datum]) + " 1:" + str(cumulative_data[0]) + " 2:" + str(cumulative_data[1]) + " 3:" + str(cumulative_data[2]) + " 4:" + str(cumulative_data[3]) + " 5:" + str(cumulative_data[4]) + " 6:" + str(cumulative_data[5]) 
 			#enter_str = str(result) + " 1:" + str(cumulative_data[0]) + " 2:" + str(cumulative_data[1]) + " 3:" + str(cumulative_data[3]) + " 4:" + str(cumulative_data[4])
 			data_array.append(enter_str)
-			ccr_v_array.append(v_dic[datum])
-			ccr_i_array.append(cumulative_data[0])
-			ccr_iv_array.append(cumulative_data[1])
-			ccr_op_array.append(cumulative_data[2])
-
 		yesterday_datum = datum
-	#print np.correlate(ccr_v_array, ccr_i_array)
-	#print np.correlate(ccr_v_array, ccr_iv_array)
-	#print np.correlate(ccr_v_array, ccr_op_array)
-	
-	backLag = False
-	time_lag = 0
-	final_lag = len(ccr_i_array) - time_lag
-	f = open('ccr_data.txt', 'a')
-	if backLag :
-		f.write(str(pearson_def(ccr_v_array[time_lag:], ccr_i_array[0:final_lag])) + "\n")
-		f.write(str(pearson_def(ccr_v_array[time_lag:], ccr_iv_array[0:final_lag])) + "\n")
-		f.write(str(pearson_def(ccr_v_array[time_lag:], ccr_op_array[0:final_lag])) + "\n")
-	else:
-		f.write(str(pearson_def(ccr_v_array[0:final_lag], ccr_i_array[time_lag:])) + "\n")
-		f.write(str(pearson_def(ccr_v_array[0:final_lag], ccr_iv_array[time_lag:])) + "\n")
-		f.write(str(pearson_def(ccr_v_array[0:final_lag], ccr_op_array[time_lag:])) + "\n")
 
-	f.close()
+	############################################################################################
+	# feature set for stock volume output
+	output = []
+	start_date = min(volume_book.keys())
+	second_start_data = min(dt for dt in volume_book.keys() if dt > start_date)
+	third_start_data = min(dt for dt in volume_book.keys() if dt > second_start_data)
+	for today in sorted(volume_book.keys()):
+		#volume_data = []
+		str_out = ""
+		if(today != start_date and today != second_start_data and today != third_start_data):
+			yesterday = max(dt for dt in volume_book.keys() if dt < today)
+			db_yesterday = max(dt for dt in volume_book.keys() if dt < yesterday)
+			tb_yesterday = max(dt for dt in volume_book.keys() if dt < db_yesterday)
+			# calculate target value
+			'''
+			if(volume_book[today] >= volume_book[yesterday]):
+				str_out = str_out + '+1'
+			else:
+				str_out = str_out + '-1'
+			'''
+			# first feature: yesterday's volume
+			str_out += ' 7:'
+			str_out += str(volume_book[yesterday])
+			# second feature: day before yesterday's volume
+			str_out += ' 8:'
+			str_out += str(volume_book[db_yesterday])
+			# third feature: volume three days ago
+			str_out += ' 9:'
+			str_out += str(volume_book[tb_yesterday])
+			# 4th feature: delta of previous two features
+			str_out += ' 10:'
+			str_out += str(volume_book[yesterday] - volume_book[db_yesterday])
+			# 5th feature: delta of two-day ago and three-day ago volume
+			str_out += ' 11:'
+			str_out += str(volume_book[db_yesterday] - volume_book[tb_yesterday])
+			# 6th feature: average of previous two days' volume
+			str_out += ' 12:'
+			str_out += str((volume_book[yesterday] + volume_book[db_yesterday])/2.0)
+			# 7th feature: average of two-day ago and three-day ago volume
+			str_out += ' 13:'
+			str_out += str((volume_book[db_yesterday] + volume_book[tb_yesterday])/2.0)
+			# str_out += '\n'
+		output.append(str_out)
+	for k, v in enumerate(data_array):
+		data_array[k] = v + output[k]
+		#print data_array[k]
 
 	return data_array
-
-def average(x):
-    assert len(x) > 0
-    return float(sum(x)) / len(x)
-
-def pearson_def(x, y):
-    assert len(x) == len(y)
-    n = len(x)
-    assert n > 0
-    avg_x = average(x)
-    avg_y = average(y)
-    diffprod = 0
-    xdiff2 = 0
-    ydiff2 = 0
-    for idx in range(n):
-        xdiff = x[idx] - avg_x
-        ydiff = y[idx] - avg_y
-        diffprod += xdiff * ydiff
-        xdiff2 += xdiff * xdiff
-        ydiff2 += ydiff * ydiff
-
-    return diffprod / math.sqrt(xdiff2 * ydiff2)
-
 
 if __name__ == "__main__":
 	stock_name = "msft"
@@ -172,16 +187,18 @@ if __name__ == "__main__":
 	file_name = stock_name + "/" + stock_name + ".csv"
 	train_name = stock_name + "/" + stock_name + ".train"
 	test_name = stock_name + "/" + stock_name + ".test"
-	results = create_data(read_volume_data(stock_name), read_influence_file(file_name, smoothing))
+	volume_book = csv_read(stock_name)
+	results = create_data(read_volume_data(stock_name), read_influence_file(file_name, smoothing), volume_book)
 
 	train_file = open(train_name, 'w')
 	test_file = open(test_name, 'w')
-	iter = (float)(len(results)) * .8
-	prob = 0.65
+	iter = 0
+	prob = 0.25
 	for line in results:
-		if random.random() < prob: train_file.write(line + "\n")
-		else:  test_file.write(line + "\n")
-		iter -= 1
+		if len(line) > 2:
+			if random.random() < prob or iter < 0.80 * len(results): train_file.write(line + "\n")
+			else:  test_file.write(line + "\n")
+		iter += 1
 	train_file.close()
 	test_file.close()
 	

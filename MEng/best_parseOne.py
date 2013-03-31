@@ -1,7 +1,5 @@
 import sys
 import random
-import numpy as np
-import math
 
 smoothing = True
 
@@ -82,12 +80,10 @@ def read_volume_data(dir):
 def create_data(v_dic, i_dic):
 	predict_dates = sorted(v_dic.keys())
 	influence_data = sorted(i_dic.keys())
-	ccr_v_array = []
-	ccr_i_array = []
-	ccr_iv_array = []
-	ccr_op_array = []
 	yesterday_volume = 0
 	yesterday_datum = ""
+	saved_enter_str = ""
+
 	data_array = []
 	for datum in influence_data:
 		if yesterday_datum in v_dic and datum in v_dic:
@@ -96,10 +92,6 @@ def create_data(v_dic, i_dic):
 			enter_str = str(result) + " 1:" + str(i_dic[yesterday_datum][0]) + " 2:" + str(i_dic[yesterday_datum][1]) + " 3:" + str(i_dic[yesterday_datum][2]) + " 4:" + str(i_dic[yesterday_datum][3]) + " 5:" + str(i_dic[yesterday_datum][4]) + " 6:" + str(i_dic[yesterday_datum][5]) 
 			#enter_str = str(result) + " 1:" + str(i_dic[yesterday_datum][0]) + " 2:" + str(i_dic[yesterday_datum][1]) + " 3:" + str(i_dic[yesterday_datum][3]) + " 4:" + str(i_dic[yesterday_datum][4])
 			data_array.append(enter_str)
-			ccr_v_array.append(v_dic[datum])
-			ccr_i_array.append(i_dic[yesterday_datum][0])
-			ccr_iv_array.append(i_dic[yesterday_datum][1])
-			ccr_op_array.append(i_dic[yesterday_datum][2])
 		elif datum in v_dic:
 			if yesterday_datum == "":
 				yesterday_datum = datum
@@ -116,55 +108,8 @@ def create_data(v_dic, i_dic):
 			enter_str = str(result) + " 1:" + str(cumulative_data[0]) + " 2:" + str(cumulative_data[1]) + " 3:" + str(cumulative_data[2]) + " 4:" + str(cumulative_data[3]) + " 5:" + str(cumulative_data[4]) + " 6:" + str(cumulative_data[5]) 
 			#enter_str = str(result) + " 1:" + str(cumulative_data[0]) + " 2:" + str(cumulative_data[1]) + " 3:" + str(cumulative_data[3]) + " 4:" + str(cumulative_data[4])
 			data_array.append(enter_str)
-			ccr_v_array.append(v_dic[datum])
-			ccr_i_array.append(cumulative_data[0])
-			ccr_iv_array.append(cumulative_data[1])
-			ccr_op_array.append(cumulative_data[2])
-
 		yesterday_datum = datum
-	#print np.correlate(ccr_v_array, ccr_i_array)
-	#print np.correlate(ccr_v_array, ccr_iv_array)
-	#print np.correlate(ccr_v_array, ccr_op_array)
-	
-	backLag = False
-	time_lag = 0
-	final_lag = len(ccr_i_array) - time_lag
-	f = open('ccr_data.txt', 'a')
-	if backLag :
-		f.write(str(pearson_def(ccr_v_array[time_lag:], ccr_i_array[0:final_lag])) + "\n")
-		f.write(str(pearson_def(ccr_v_array[time_lag:], ccr_iv_array[0:final_lag])) + "\n")
-		f.write(str(pearson_def(ccr_v_array[time_lag:], ccr_op_array[0:final_lag])) + "\n")
-	else:
-		f.write(str(pearson_def(ccr_v_array[0:final_lag], ccr_i_array[time_lag:])) + "\n")
-		f.write(str(pearson_def(ccr_v_array[0:final_lag], ccr_iv_array[time_lag:])) + "\n")
-		f.write(str(pearson_def(ccr_v_array[0:final_lag], ccr_op_array[time_lag:])) + "\n")
-
-	f.close()
-
 	return data_array
-
-def average(x):
-    assert len(x) > 0
-    return float(sum(x)) / len(x)
-
-def pearson_def(x, y):
-    assert len(x) == len(y)
-    n = len(x)
-    assert n > 0
-    avg_x = average(x)
-    avg_y = average(y)
-    diffprod = 0
-    xdiff2 = 0
-    ydiff2 = 0
-    for idx in range(n):
-        xdiff = x[idx] - avg_x
-        ydiff = y[idx] - avg_y
-        diffprod += xdiff * ydiff
-        xdiff2 += xdiff * xdiff
-        ydiff2 += ydiff * ydiff
-
-    return diffprod / math.sqrt(xdiff2 * ydiff2)
-
 
 if __name__ == "__main__":
 	stock_name = "msft"
@@ -176,12 +121,12 @@ if __name__ == "__main__":
 
 	train_file = open(train_name, 'w')
 	test_file = open(test_name, 'w')
-	iter = (float)(len(results)) * .8
-	prob = 0.65
+	iter = 0
 	for line in results:
-		if random.random() < prob: train_file.write(line + "\n")
-		else:  test_file.write(line + "\n")
-		iter -= 1
+		if len(line) > 2:
+			if iter < len(results) - 1: train_file.write(line + "\n")
+			else:  test_file.write(line + "\n")
+		iter += 1
 	train_file.close()
 	test_file.close()
 	
