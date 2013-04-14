@@ -1,9 +1,14 @@
 import urllib2
 import re
+<<<<<<< HEAD
 import sys
 import pickle
 import time
 
+=======
+import difflib
+import time
+>>>>>>> fixed webpage query timeout issue
 # global val
 #appkey = 'chvarnqqng32t34y236qw582'
 appkey = 'cjvgsbragwdyncddda3ujmw8'
@@ -36,6 +41,7 @@ def get_inf_id(topic_id, start, end):
 	# print req
 	the_page = ""
 	try:
+		time.sleep(1.5)
 		inf_filter_req = urllib2.Request(inf_filter_str)
 		response = urllib2.urlopen(inf_filter_req)
 		the_page = response.read()
@@ -53,10 +59,23 @@ def get_inf_id(topic_id, start, end):
 def get_inf_history(topic_id, inf_id):
 	inf_history_str =('http://api.appinions.com/influencer/score/influencers/history?topicid={0}&influencerid={1}'+\
 					  '&offset=0&limit=100&appkey={2}').format(topic_id, inf_id, appkey).strip()
+<<<<<<< HEAD
 	# req = 'http://api.appinions.com/influencer/score/influencers/history?topicid=58524714-852d-4569-ad5a-c70f1f5b414b&influencerid=5deff3e4-1210-46d8-ade0-22fad673cfee&offset=0&limit=100&appkey=chvarnqqng32t34y236qw582'
 	the_page = ""
 
+=======
+
+	req = 'http://api.appinions.com/influencer/score/influencers/history?topicid=1a6e48b2-ca1e-4316-9804-a70cdbb1c013&influencerid=5bf28adf-3c9e-4e3a-a86d-ce2bbf77dd1b&offset=0&limit=100&appkey=chvarnqqng32t34y236qw582'
+	'''
+	s = difflib.SequenceMatcher(a=inf_history_str, b=req).get_matching_blocks()
+	print s
+	print inf_history_str[207:], '   ', req[207:]
+	print len(inf_history_str)
+	print len(req)
+	'''
+>>>>>>> fixed webpage query timeout issue
 	try:
+		time.sleep(1.5)
 		print inf_history_str
 		inf_history_req = urllib2.Request(inf_history_str)
 		response = urllib2.urlopen(inf_history_req)
@@ -72,11 +91,13 @@ def get_inf_history(topic_id, inf_id):
 
 
 	history = re.findall(r'"date":"([\d-]+)","sentiment":([\d.]+),"score":([\d.]+),"volume":([\d.]+)', the_page)
+	# print history
 	inf_history_dic = {}
 	for tuple in history:
 		inf_history_dic[tuple[0]] = [tuple[1:]]
 	return inf_history_dic
 
+<<<<<<< HEAD
 topic_dic = pickleData
 
 if type(pickleData) == None:
@@ -101,6 +122,27 @@ if type(pickleData) == None:
 			num_requests += 1
 		topic_dic[topic] = influncer_dic
 	print 'num requests:' + str(num_requests)
+=======
+topic_id_dic = topic_id_import('topic_id_list.txt')
+# print topic_id_dic
+'''
+# main methods test
+inf_id_lst = get_inf_id(topic_id_dic['Google'], start, end)
+samp_inf_history = get_inf_history(topic_id_dic['Google'], 'bc670322-fcd5-45c3-a9f0-7edffb47af9f')
+print samp_inf_history# ['2013-04-01']
+'''
+topic_dic = {}
+for topic, topic_id in topic_id_dic.iteritems():
+	inf_lst = get_inf_id(topic_id, start, end)
+	# print inf_lst
+	print "current topic:", topic
+	print "current topic id: ", topic_id
+	influncer_dic = {}
+	for influencer in inf_lst:
+		# print "current influencer id: ", influencer
+		influncer_dic[influencer] = get_inf_history(topic_id, influencer)
+	topic_dic[topic] = influncer_dic
+>>>>>>> fixed webpage query timeout issue
 # test main
 #print topic_dic['Amazon']
 #pickle this data
