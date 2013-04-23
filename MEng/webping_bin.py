@@ -26,17 +26,20 @@ def stock_data_parse(filename):
 					break
 				volume_book[_date] = int(row[5])
 	target_val = {}
+	trading_days = []
 	start_date = min(volume_book.keys())
 	for today in volume_book.keys():
 		if(today != start_date):
 			yesterday = max(dt for dt in volume_book.keys() if dt < today)
 		# calculate target value
-		str_today = today.strftime('%m-%d-%Y')
+		str_today = today.strftime('%Y-%m-%d')
 		if(volume_book[today] >= volume_book[yesterday]):
 			target_val[str_today] = '+1'
 		else:
 			target_val[str_today] = '-1'
-	return target_val
+		if(today != start_date):
+			trading_days.append(str_today)
+	return (target_val, sorted(trading_days))
 
 #print pickleData
 # get topic id from file
@@ -102,47 +105,51 @@ def get_inf_history(topic_id, inf_id):
 	# print "dic val: ", inf_history_dic.values()
 	return inf_history_dic
 
+def API_data_retrieve():
+	global pickleData
+	try:
+		pickleData = pickle.load( open( "save.p", "rb" ) )
+		print "Reading saved data ---"
+	except:
+		print "no pickle data!"
+
+	# test = get_inf_history('1a6e48b2-ca1e-4316-9804-a70cdbb1c013', '2b5a0749-c957-4a56-acc9-0173dd674bb9')
+
+	topic_dic = pickleData
+	#print "here"
+	#print pickleData == None
+	if pickleData == None:
+		topic_dic = {}
+		topic_id_dic = topic_id_import('topic_id_list.txt')
+		'''
+		# main methods test
+		inf_id_lst = get_inf_id(topic_id_dic['goog'], start, end)
+		samp_inf_history = get_inf_history(topic_id_dic['goog'], 'bc670322-fcd5-45c3-a9f0-7edffb47af9f')
+		print samp_inf_history# ['2013-04-01']
+		'''
+
+		num_requests = 0
+		for topic, topic_id in topic_id_dic.iteritems():
+			inf_lst = get_inf_id(topic_id, start, end)
+			print "current topic:", topic
+			print "current topic id: ", topic_id
+			influncer_dic = {}
+			for influencer in inf_lst:
+				print "current influencer id: ", influencer
+				time.sleep(0.7)
+				influncer_dic[influencer] = get_inf_history(topic_id, influencer)
+				num_requests += 1
+				print num_requests
+			topic_dic[topic] = influncer_dic
+		print 'num requests:' + str(num_requests)
+	#pickle this data
+	if pickleData == None:
+		pickle.dump( topic_dic, open( "save.p", "wb" ) )
+	return topic_dic
+
 # ------------------ main ------------------ #
-try:
-	pickleData = pickle.load( open( "save.p", "rb" ) )
-	print "Reading saved data ---"
-except:
-	print "no pickle data!"
-
-test = get_inf_history('1a6e48b2-ca1e-4316-9804-a70cdbb1c013', '2b5a0749-c957-4a56-acc9-0173dd674bb9')
-
-topic_dic = pickleData
-#print "here"
-#print pickleData == None
-if pickleData == None:
-	topic_dic = {}
-	topic_id_dic = topic_id_import('topic_id_list.txt')
-	'''
-	# main methods test
-	inf_id_lst = get_inf_id(topic_id_dic['Google'], start, end)
-	samp_inf_history = get_inf_history(topic_id_dic['Google'], 'bc670322-fcd5-45c3-a9f0-7edffb47af9f')
-	print samp_inf_history# ['2013-04-01']
-	'''
-
-	num_requests = 0
-	for topic, topic_id in topic_id_dic.iteritems():
-		inf_lst = get_inf_id(topic_id, start, end)
-		print "current topic:", topic
-		print "current topic id: ", topic_id
-		influncer_dic = {}
-		for influencer in inf_lst:
-			print "current influencer id: ", influencer
-			time.sleep(0.7)
-			influncer_dic[influencer] = get_inf_history(topic_id, influencer)
-			num_requests += 1
-			print num_requests
-		topic_dic[topic] = influncer_dic
-	print 'num requests:' + str(num_requests)
-
-#pickle this data
-if pickleData == None:
-	pickle.dump( topic_dic, open( "save.p", "wb" ) )
-
+topic_dic = API_data_retrieve()
+topic_id_dic = topic_id_import('topic_id_list.txt')
 # get all the days
 dates = []
 #print topic_dic
@@ -160,7 +167,7 @@ printDates = sorted(printDates)
 print printDates
 
 # For each stock, get average sentiment, score and volume each day as features
-stocks = ["amzn", "aapl", "fb", "goog", "intc", "msft"]
+# stocks = ["amzn", "aapl", "fb", "goog", "intc", "msft"]
 
 avgData = {}
 for index, topic in enumerate(topic_dic):
@@ -182,9 +189,10 @@ for index, topic in enumerate(topic_dic):
 			# get binned data based on influencer score for each day
 			try:
 				bin_num = min(10,int(float(topic_dic[topic][inf][day][1])/10))
-				print "passed"
+				# print "passed"
 			except:
-				print "failed topic: ", topic
+				# print "failed topic: ", topic
+				continue
 			# get sum and count of data for each day
 			for iterElt in [0,1,2]:
 				if iterElt not in features[day] : features[day][iterElt] = 0
@@ -196,7 +204,8 @@ for index, topic in enumerate(topic_dic):
 					bin_score_feature[day][bin_num][iterElt] += float(topic_dic[topic][inf][day][iterElt])
 					bin_score_num_feature[day][bin_num][iterElt] += 1
 				except:
-					print "failed in avg: ", topic
+					# print "failed in avg: ", topic
+					continue
 
 	'''
 	for day in dates:
@@ -232,7 +241,8 @@ for elt in avgData:
 	except:
 		print "Failed stock: ", elt
 
-for stock in stocks:
+svm_target = {}
+for stock in topic_id_dic.keys():
 	urlrequeststr = "http://ichart.finance.yahoo.com/table.csv?s=" + stock + "&a=01&b=13&c=2013&d=03&e=19&f=2013&g=d&ignore=.csv"
 	print urlrequeststr
 	req = urllib2.Request(urlrequeststr)
@@ -242,7 +252,9 @@ for stock in stocks:
 	f = open(stock_filename, 'w')
 	f.write(response)
 	f.close()
-	volume_move_dic = stock_data_parse(stock_filename)
+	svm_target[stock], trading_days= stock_data_parse(stock_filename)
+print svm_target['msft']['2013-04-01']
+print trading_days
 sys.exit(-1)
 #get the stock for each guy (and print)
 
