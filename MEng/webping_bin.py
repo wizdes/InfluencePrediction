@@ -5,6 +5,8 @@ import pickle
 import time
 import csv
 import datetime
+import random
+from subprocess import *
 from collections import defaultdict
 
 # global val
@@ -13,21 +15,27 @@ appkey = 'chvarnqqng32t34y236qw582'
 start = '02-22-2013'
 end = '04-22-2013'
 pickleData = None
+C = 1
 
 def stock_data_parse(filename):
+	global start
+	global end
 	volume_book = {}
+	start_date = datetime.datetime.strptime(start,'%m-%d-%Y').date()
+	end_date = datetime.datetime.strptime(end,'%m-%d-%Y').date()
 	with open(filename,'rb') as f_in:
 		reader = csv.reader(f_in)
 		for row in reader:
 			#print row[0]
 			if(row[0] != 'Date'):
 				_date = datetime.datetime.strptime(row[0],'%Y-%m-%d').date()
-				if(_date < datetime.date(2013,2,21)):
-					break
-				volume_book[_date] = int(row[5])
+				#print _date, start_date, end_date
+				#print _date >= start_date
+				if(_date >= start_date and _date <= end_date):
+					volume_book[_date] = int(row[5])
 	target_val = {}
 	trading_days = []
-	start_date = min(volume_book.keys())
+	# start_date = min(volume_book.keys())
 	for today in volume_book.keys():
 		if(today != start_date):
 			yesterday = max(dt for dt in volume_book.keys() if dt < today)
@@ -41,6 +49,23 @@ def stock_data_parse(filename):
 			trading_days.append(str_today)
 	return (target_val, sorted(trading_days))
 
+def get_volume_movement(topic_id_dic):
+	svm_target = {}
+	# topic_id_dic = topic_id_import('topic_id_list.txt')
+	for stock in topic_id_dic.keys():
+		urlrequeststr = "http://ichart.finance.yahoo.com/table.csv?s=" + stock + "&a=01&b=13&c=2013&d=03&e=19&f=2013&g=d&ignore=.csv"
+		print urlrequeststr
+		req = urllib2.Request(urlrequeststr)
+		response = urllib2.urlopen(req)
+		response = response.read()
+		stock_filename = "yahoo_stock_data/"+stock+".csv"
+		f = open(stock_filename, 'w')
+		f.write(response)
+		f.close()
+		svm_target[stock], trading_days= stock_data_parse(stock_filename)
+	print svm_target['msft']['2013-04-01']
+	print trading_days
+	return svm_target, trading_days
 #print pickleData
 # get topic id from file
 def topic_id_import(filename):
@@ -147,77 +172,174 @@ def API_data_retrieve():
 		pickle.dump( topic_dic, open( "save.p", "wb" ) )
 	return topic_dic
 
+# get all the days in influencer data
+def get_dates(topic_dic):
+	dates = []
+	#print topic_dic
+	firstElt = topic_dic.values()[0].values()[0]
+	#print firstElt
+	for elt in firstElt.keys():
+		dates.append(elt)
+	#print dates
+	printDates = []
+	for elt in dates:
+		printDates.append(elt.replace("-", "/"))
+
+	dates = sorted(dates)
+	printDates = sorted(printDates)
+	print printDates
+	return (dates, printDates)
+
+# For each stock, get average sentiment, score and volume each day as features
+def get_avg_data(topic_dic, dates):
+	avgData = {}
+	for index, topic in enumerate(topic_dic):
+		print "in avg data, current topic: ", topic
+		features = {}#a single topic: Amazon
+		featuresNum = {}
+		bin_score_feature ={}
+		bin_score_num_feature = {}
+		# print topic_dic[topic]
+		for inf in topic_dic[topic]:
+			for day in dates:
+				features[day] = [0,0,0]
+				featuresNum[day] = [0,0,0]
+				bin_score_feature[day] = {}
+				bin_score_num_feature[day] = {}
+				# initialize bin dictionary for each day
+				for i in range(11):
+					bin_score_feature[day][i] = [0,0,0]
+					bin_score_num_feature[day][i] = [0,0,0]
+				# get binned data based on influencer score for each day
+				try:
+					bin_num = min(10,int(float(topic_dic[topic][inf][day][1])/10))
+					# print "passed"
+				except:
+					# print "failed topic: ", topic
+					continue
+				# get sum and count of data for each day
+				for iterElt in [0,1,2]:
+					if iterElt not in features[day] : features[day][iterElt] = 0
+					#print topic_dic[topic][inf][day][0][iterElt]
+					try:
+						#print "test:  value = ", topic_dic[topic][inf][day][0]# [iterElt]
+						features[day][iterElt] += float(topic_dic[topic][inf][day][iterElt])
+						featuresNum[day][iterElt] += 1
+						bin_score_feature[day][bin_num][iterElt] += float(topic_dic[topic][inf][day][iterElt])
+						bin_score_num_feature[day][bin_num][iterElt] += 1
+					except:
+						# print "failed in avg: ", topic
+						continue
+		for day in dates:
+			# print "Number of influencer for topic ", topic, "is ", len(topic_dic[topic])
+			for iterElt in [0,1,2]:
+				if(featuresNum[day][iterElt] != 0):
+					features[day][iterElt] = float(features[day][iterElt])/featuresNum[day][iterElt]
+				else:
+					features[day][iterElt] = 0
+				# print "avg is ", features[day][iterElt]
+			for i in range(11):
+				for iterElt in [0,1,2]:
+					if(bin_score_num_feature[day][i][iterElt] != 0):
+						bin_score_feature[day][i][iterElt] = float(bin_score_feature[day][i][iterElt])/bin_score_num_feature[day][i][iterElt]
+					else:
+						bin_score_feature[day][i][iterElt] = 0
+		avgData[topic] = [features, bin_score_feature]
+	return avgData
+
+
+# trading_days and inf_days should be in sorted order starting from earlier days
+def svm_gen(target, trading_days, avg_data, inf_days):
+	svm_out = []
+	# make sure all trading days has the data in the day before
+	if(trading_days[0] == inf_days[0]):
+		trading_days = trading_days[1:]
+	for trading_day in trading_days:
+		date_today = trading_day
+		date_yesterday = inf_days[inf_days.index(trading_day)-1]
+		for topic in target:
+			svm_line = target[topic][date_today]
+			f_index = 1
+			# make sure features in order
+			for company in sorted(avg_data.keys()):
+				# use absolute avg data (not delta) as feature values
+				avg_features, bin_score_feature = avg_data[company]
+				# today's avg features
+				for index, val in enumerate(avg_features[date_today], start = f_index):
+					if(val > 0):
+						svm_line = svm_line + ' ' + str(index) + ':' + str(round(val,4))
+				f_index = index + 1
+				# yesterday's avg features
+				for index, val in enumerate(avg_features[date_yesterday], start = f_index):
+					if(val > 0):
+						svm_line = svm_line + ' ' + str(index) + ':' + str(round(val,4))
+				f_index = index + 1
+				# binned features of today
+				for bin in sorted(bin_score_feature[date_today].keys()):
+					for index, val in enumerate(bin_score_feature[date_today][bin], start = f_index):
+						if(val > 0):
+							svm_line = svm_line + ' ' + str(index) + ':' + str(round(val,4))
+					f_index = index + 1
+				# binned features of yesterday
+				for bin in sorted(bin_score_feature[date_yesterday].keys()):
+					for index, val in enumerate(bin_score_feature[date_yesterday][bin], start = f_index):
+						if(val > 0):
+							svm_line = svm_line + ' ' + str(index) + ':' + str(round(val,4))
+					f_index = index + 1
+			svm_out.append(svm_line)
+	return svm_out
+
+def svm_run(svm_lst):
+	global C
+	random.shuffle(svm_lst)
+	split = int(len(svm_lst) * 0.7)
+	train_out_lst = svm_lst[:split]
+	test_out_lst = svm_lst[split:]
+	train_out = ""
+	test_out = ""
+	for each in train_out_lst:
+		train_out += each
+		train_out += '\n'
+	for each in test_out_lst:
+		test_out += each
+		test_out += '\n'
+	svm_train_out = open("twitter_train.svm",'w')
+	svm_test_out = open("twitter_test.svm",'w')
+	svm_train_out.write(train_out)
+	svm_test_out.write(test_out)
+
+	train_file = 'twitter_train.svm'
+	test_file = 'twitter_test.svm'
+	model_file = 'model'
+	predict_file = 'predict'
+	svm_learn = 'svm_light/svm_learn'
+	svm_classify = 'svm_light/svm_classify'
+	cmd = '%s -c %.4f %s %s' %(svm_learn,C, train_file, model_file)
+	print('Training...')
+	call(cmd,shell=True,cwd='/Users/ccrjohn/Dropbox/Spring 2013/CS 5999/API parse')
+
+	cmd = '%s %s %s %s' %(svm_classify,test_file,model_file,predict_file)
+	print('Testing...')
+	call(cmd,shell=True,cwd='/Users/ccrjohn/Dropbox/Spring 2013/CS 5999/API parse')
+
 # ------------------ main ------------------ #
 topic_dic = API_data_retrieve()
 topic_id_dic = topic_id_import('topic_id_list.txt')
+# special treatment since amazon was broke at the time of query
+del topic_dic['Amazon']
+del topic_id_dic['amzn']
 # get all the days
-dates = []
-#print topic_dic
-firstElt = topic_dic.values()[0].values()[0]
-#print firstElt
-for elt in firstElt.keys():
-	dates.append(elt)
-#print dates
-printDates = []
-for elt in dates:
-	printDates.append(elt.replace("-", "/"))
-
-dates = sorted(dates)
-printDates = sorted(printDates)
-print printDates
-
+dates, printDates = get_dates(topic_dic)
 # For each stock, get average sentiment, score and volume each day as features
-# stocks = ["amzn", "aapl", "fb", "goog", "intc", "msft"]
+avgData = get_avg_data(topic_dic, dates)
+# get the binary movement of stock volume each day
+svm_target, trading_days = get_volume_movement(topic_id_dic)
+# generate svm formated data in list
+svm_lst = svm_gen(svm_target, trading_days, avgData, dates)
+# run svm and get accuracy
+svm_run(svm_lst)
 
-avgData = {}
-for index, topic in enumerate(topic_dic):
-	features = {}#a single topic: Amazon
-	featuresNum = {}
-	bin_score_feature ={}
-	bin_score_num_feature = {}
-	# print topic_dic[topic]
-	for inf in topic_dic[topic]:
-		for day in dates:
-			features[day] = [0,0,0]
-			featuresNum[day] = [0,0,0]
-			bin_score_feature[day] = {}
-			bin_score_num_feature[day] = {}
-			# initialize bin dictionary for each day
-			for i in range(11):
-				bin_score_feature[day][i] = [0,0,0]
-				bin_score_num_feature[day][i] = [0,0,0]
-			# get binned data based on influencer score for each day
-			try:
-				bin_num = min(10,int(float(topic_dic[topic][inf][day][1])/10))
-				# print "passed"
-			except:
-				# print "failed topic: ", topic
-				continue
-			# get sum and count of data for each day
-			for iterElt in [0,1,2]:
-				if iterElt not in features[day] : features[day][iterElt] = 0
-				#print topic_dic[topic][inf][day][0][iterElt]
-				try:
-					#print "test:  value = ", topic_dic[topic][inf][day][0]# [iterElt]
-					features[day][iterElt] += float(topic_dic[topic][inf][day][iterElt])
-					featuresNum[day][iterElt] += 1
-					bin_score_feature[day][bin_num][iterElt] += float(topic_dic[topic][inf][day][iterElt])
-					bin_score_num_feature[day][bin_num][iterElt] += 1
-				except:
-					# print "failed in avg: ", topic
-					continue
 
-	'''
-	for day in dates:
-		for iterElt in [0,1,2]:
-			print "Number of influencer for topic ", topic, "is ", len(topic_dic[topic])
-			if(featuresNum[day][iterElt] != 0):
-				features[day][iterElt] = float(features[day][iterElt])/featuresNum[day][iterElt]
-			else:
-				features[day][iterElt] = 0
-			print "avg is ", features[day][iterElt]
-	'''
-	avgData[topic] = [features, featuresNum, bin_score_feature, bin_score_num_feature]
 
 # create the average for each day
 #print them for each day
@@ -241,24 +363,6 @@ for elt in avgData:
 	except:
 		print "Failed stock: ", elt
 
-svm_target = {}
-for stock in topic_id_dic.keys():
-	urlrequeststr = "http://ichart.finance.yahoo.com/table.csv?s=" + stock + "&a=01&b=13&c=2013&d=03&e=19&f=2013&g=d&ignore=.csv"
-	print urlrequeststr
-	req = urllib2.Request(urlrequeststr)
-	response = urllib2.urlopen(req)
-	response = response.read()
-	stock_filename = "yahoo_stock_data/"+stock+".csv"
-	f = open(stock_filename, 'w')
-	f.write(response)
-	f.close()
-	svm_target[stock], trading_days= stock_data_parse(stock_filename)
-print svm_target['msft']['2013-04-01']
-print trading_days
-sys.exit(-1)
-#get the stock for each guy (and print)
-
-#run the prediction algorithm
 
 
 
