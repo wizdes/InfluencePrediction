@@ -1,0 +1,12 @@
+#!/bin/sh
+
+cp csv_test/Facebook.csvtest fb/
+#mv fb/Facebook.csvtest fb.csv
+cp csv_test/Apple.csvtest appl/
+#mv appl/Apple.csvtest appl.csv
+cp csv_test/Google.csvtest goog/
+#mv goog/Google.csvtest goog.csv
+cp csv_test/Intel.csvtest intc/
+#mv intc/Intel.csvtest intc.csv
+cp csv_test/Microsoft.csvtest msft/
+#mv msft/Microsoft.csvtest msft.csv

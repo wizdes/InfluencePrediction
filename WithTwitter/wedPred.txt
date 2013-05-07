@@ -1,0 +1,4 @@
+1) get data for today
+2) parse it into the different directories
+3) change volume to have -1 and the predicted day
+4) run best_parseOne.py an best_parseOneV.py
