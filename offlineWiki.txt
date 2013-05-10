@@ -1,0 +1,112 @@
+### 1) Introduction
+
+Appinions provides influence marketing data that is used to deliver the influence power of users. We want to see if we can use this data for predict other real life elements, such as stock volume, stock prices or market share. We want to see the predictive capability of the topic/influence metric provided by Appinions.
+
+Our hypothesis is that the topic/influence metric is statistically significant in predicting our given target functions. We use several tools, such as machine learning algorithms, CRR and several baseline algorithms to verify this claim.
+
+In our project, we decided to use stock volume as our target function. This is because this is readily available and comes in the necessary granularity.
+  
+### 2) Methodology
+
+In our project, we wanted to verify that the topic/influence metric had a good predictive power for our given target function. We first developed several baselines to compare our results against. These baselines include randomly guessing and the kNN machine learning algorithm.
+
+Next, we developed several SVM models with different kernels and different parameters. These are optimized using 10-fold cross validation to increase the accuracy of the system.
+
+a) Feature Engineering
+
+We used the feature given by the topic/influence metric to determine the predictive power of this metric with stock volume as a target function. Specifically, we use the influence score, opinion sentiment and opinion volume for a particular day as the base set of features for prediction.
+
+In addition, we take this set of features for a given day as well as the delta of the features from the previous day as features for prediction of the next day's stock volume direction.
+  
+b) Baseline Algorithms
+
+We implemented two baseline algorithms:
+* Random Guessing
+* k Nearest Neighbor ML Algorithm
+
+Random Guessing is implemented by randomly guessing a direction for stock volume for a given day. This is to give a rudimentary estimation.
+
+kNN was used with Euclidean distance metric to find the closest neighbors to the a particular set of features; this is used so these neighbors then vote to predict the direction of the stock volume.
+  
+c) SVMs
+
+We also used support vector machines as another machine learning algorithm to predict the stock volume direction. We used both a linear kernel and a radial function kernel for our SVMs and tuned the parameter 'c' with 10 fold cross validation to ensure an accurate assessment of the predictive power of the influence data.
+
+For SVMs, we used Prof. Joachim's svm-light as our machine learning model. http://svmlight.joachims.org/
+  
+d) Publisher Bias
+
+We also looked at how the publisher influences the predictive power of the topic/influence metric. By discriminating towards news sources that tend to be more recent (such as Twitter), we believe that we can get a more accurate set of predictions for our target function. 
+
+### 3) Data
+
+We used the Net Influence score, Opinion Volume, and Sentiment from the Appinions as our features for our prediction algorithm. This data was limited since it was limited tothe past 60 days by the API. We obtained our stock data from the Bloomberg terminals and Yahoo! Finance data. All the data was normalized. Our training data was collected by randomly selecting 75% of the data as training and 25% as verification.
+
+### 4) Results
+
+Evaluation with Influence Features:  
+Algorithm - Accuracy  
+Linear SVM - 46%  
+Polynomial SVM - 47.3%  
+Random - 50%  
+kNN - 52%  
+Sigmoid TanH SVM - 53%  
+
+Evaluation with Influence and Previous Volume Information Features:  
+Algorithm - Accuracy  
+Polynomial SVM - 47.7%  
+Random - 50%  
+Sigmoid TanH SVM - 50.2%  
+kNN - 50.5%  
+Linear SVM - 52.5%  
+
+Evaluation with Twitter-Isolated Data:  
+Algorithm - Accuracy  
+kNN - 46%  
+Random - 50%  
+Linear SVM - 55.7%  
+
+More results are in the Results Presentation in the source directory.
+
+### 5) Analysis
+
+It is clear that the results from unfiltered influence data does not provide a strong enough predictive power to disambiguate the direction of stock volume. Although they do perform better than randomly guessing, it is not much better. However, after applying the publisher filter and applying the machine learning algorithm system to a data from Twitter exclusively, the accuracy of the system increases.
+
+This falls in line with the work Ruiz, Castillo et al. http://www.cs.ucr.edu/~vagelis/publications/wsdm2012-microblog-financial.pdf.
+
+### 6) How to run programs
+
+See the README in our source files.
+
+### 7) Related Work
+
+This project uses Prof. Joachim's SVM-light program.  
+http://svmlight.joachims.org/
+
+Ruiz, Castillo et al. also took a similiar approach; however they only used Twitter data. http://www.cs.ucr.edu/~vagelis/publications/wsdm2012-microblog-financial.pdf.
+
+
+### 8) Future Work
+
+One can expand the kNN baseline to include several different distance metrics, including cosine distance, dot product, etc. This may deliver a stronger baseline to compare against.
+
+One can expand the publisher bias against other news sources, such as the New York Times, etc.
+
+One can try applying other machine learning models, such as a Mixed Entropy Markov Model or a Hidden Markov Model.
+
+### 9) Data Sources
+
+a) Yahoo Historical Stock API  
+We used Yahoo stock data for the stock volume data to co-relate with the influence/topic metric. This allowed us to train our data and give stock volume directions. 
+
+We initially used the Bloomberg terminals for our stock data; however, we decided to use Yahoo's Historical Stock API for its ease of use and its accessibility.
+
+b) Appinions API
+
+The API used is describe the API we used is:  
+http://developer.appinions.com/io-docs
+
+c) Appinions Influence Graph
+
+The topic/influence graph used is described here:  
+http://platform.appinions.com/topiclist/mytopic/
