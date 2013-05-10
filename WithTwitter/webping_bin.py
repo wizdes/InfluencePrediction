@@ -13,6 +13,7 @@ appkey = 'chvarnqqng32t34y236qw582'
 start = '02-22-2013'
 end = '04-22-2013'
 pickleData = None
+publisher = 'twitter'
 
 def stock_data_parse(filename):
 	volume_book = {}
@@ -53,7 +54,7 @@ def get_inf_id(topic_id, start, end):
 	start_date = start
 	end_date = end
 	inf_filter_str =('http://api.appinions.com/influencer/influencersearch/{0}/.json?offset=0&limit=100'+\
-					 '&publisher=twitter&start_date={1}&end_date={2}&appkey={3}').format(topic_id, start_date, end_date, appkey)
+					 '&publisher='+ publisher + '&start_date={1}&end_date={2}&appkey={3}').format(topic_id, start_date, end_date, appkey)
 	# req = 'http://api.appinions.com/influencer/influencersearch/58524714-852d-4569-ad5a-c70f1f5b414b/.json?offset=0&limit=100&publisher=twitter&start_date=02-01-2013&end_date=04-12-2013&appkey=chvarnqqng32t34y236qw582'
 	# print inf_filter_str
 	# print req
